@@ -1,3 +1,11 @@
+//! [![github]](https://github.com/dtolnay/proc-macro-hack)&ensp;[![crates-io]](https://crates.io/crates/proc-macro-hack)&ensp;[![docs-rs]](https://docs.rs/proc-macro-hack)
+//!
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
+//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logoColor=white&logo=data:image/svg+xml;base64,PHN2ZyByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxwYXRoIGZpbGw9IiNmNWY1ZjUiIGQ9Ik00ODguNiAyNTAuMkwzOTIgMjE0VjEwNS41YzAtMTUtOS4zLTI4LjQtMjMuNC0zMy43bC0xMDAtMzcuNWMtOC4xLTMuMS0xNy4xLTMuMS0yNS4zIDBsLTEwMCAzNy41Yy0xNC4xIDUuMy0yMy40IDE4LjctMjMuNCAzMy43VjIxNGwtOTYuNiAzNi4yQzkuMyAyNTUuNSAwIDI2OC45IDAgMjgzLjlWMzk0YzAgMTMuNiA3LjcgMjYuMSAxOS45IDMyLjJsMTAwIDUwYzEwLjEgNS4xIDIyLjEgNS4xIDMyLjIgMGwxMDMuOS01MiAxMDMuOSA1MmMxMC4xIDUuMSAyMi4xIDUuMSAzMi4yIDBsMTAwLTUwYzEyLjItNi4xIDE5LjktMTguNiAxOS45LTMyLjJWMjgzLjljMC0xNS05LjMtMjguNC0yMy40LTMzLjd6TTM1OCAyMTQuOGwtODUgMzEuOXYtNjguMmw4NS0zN3Y3My4zek0xNTQgMTA0LjFsMTAyLTM4LjIgMTAyIDM4LjJ2LjZsLTEwMiA0MS40LTEwMi00MS40di0uNnptODQgMjkxLjFsLTg1IDQyLjV2LTc5LjFsODUtMzguOHY3NS40em0wLTExMmwtMTAyIDQxLjQtMTAyLTQxLjR2LS42bDEwMi0zOC4yIDEwMiAzOC4ydi42em0yNDAgMTEybC04NSA0Mi41di03OS4xbDg1LTM4Ljh2NzUuNHptMC0xMTJsLTEwMiA0MS40LTEwMi00MS40di0uNmwxMDItMzguMiAxMDIgMzguMnYuNnoiPjwvcGF0aD48L3N2Zz4K
+//!
+//! <br>
+//!
 //! As of Rust 1.30, the language supports user-defined function-like procedural
 //! macros. However these can only be invoked in item position, not in
 //! statements or expressions.
@@ -14,7 +22,7 @@
 //! This crate must contain nothing but procedural macros. Private helper
 //! functions and private modules are fine but nothing can be public.
 //!
-//! [> example of an implementation crate][demo-hack-impl]
+//! [&raquo; example of an implementation crate][demo-hack-impl]
 //!
 //! Just like you would use a #\[proc_macro\] attribute to define a natively
 //! supported procedural macro, use proc-macro-hack's #\[proc_macro_hack\]
@@ -48,7 +56,7 @@
 //! This crate is allowed to contain other public things if you need, for
 //! example traits or functions or ordinary macros.
 //!
-//! [> example of a declaration crate][demo-hack]
+//! [&raquo; example of a declaration crate][demo-hack]
 //!
 //! Within the declaration crate there needs to be a re-export of your
 //! procedural macro from the implementation crate. The re-export also carries a
@@ -86,7 +94,7 @@
 //! Users of your crate depend on your declaration crate (not your
 //! implementation crate), then use your procedural macros as usual.
 //!
-//! [> example of a downstream crate][example]
+//! [&raquo; example of a downstream crate][example]
 //!
 //! ```
 //! use demo_hack::add_one;
@@ -131,15 +139,17 @@ extern crate proc_macro;
 mod quote;
 
 mod error;
+mod iter;
 mod parse;
 
 use crate::error::{compile_error, Error};
-use crate::parse::*;
-use proc_macro::{token_stream, Ident, Punct, Spacing, Span, TokenStream, TokenTree};
+use crate::iter::Iter;
+use crate::parse::{
+    parse_define_args, parse_enum_hack, parse_export_args, parse_fake_call_site, parse_input,
+};
+use proc_macro::{Ident, Punct, Spacing, Span, TokenStream, TokenTree};
 use std::fmt::Write;
-use std::iter::Peekable;
 
-type Iter<'a> = &'a mut Peekable<token_stream::IntoIter>;
 type Visibility = Option<Span>;
 
 enum Input {
@@ -169,8 +179,8 @@ struct Macro {
 
 #[proc_macro_attribute]
 pub fn proc_macro_hack(args: TokenStream, input: TokenStream) -> TokenStream {
-    let ref mut args = args.into_iter().peekable();
-    let ref mut input = input.into_iter().peekable();
+    let ref mut args = iter::new(args);
+    let ref mut input = iter::new(input);
     expand_proc_macro_hack(args, input).unwrap_or_else(compile_error)
 }
 
@@ -190,7 +200,7 @@ fn expand_proc_macro_hack(args: Iter, input: Iter) -> Result<TokenStream, Error>
 #[doc(hidden)]
 #[proc_macro_derive(ProcMacroHack)]
 pub fn enum_hack(input: TokenStream) -> TokenStream {
-    let ref mut input = input.into_iter().peekable();
+    let ref mut input = iter::new(input);
     parse_enum_hack(input).unwrap_or_else(compile_error)
 }
 
@@ -202,8 +212,8 @@ struct FakeCallSite {
 #[doc(hidden)]
 #[proc_macro_attribute]
 pub fn fake_call_site(args: TokenStream, input: TokenStream) -> TokenStream {
-    let ref mut args = args.into_iter().peekable();
-    let ref mut input = input.into_iter().peekable();
+    let ref mut args = iter::new(args);
+    let ref mut input = iter::new(input);
     expand_fake_call_site(args, input).unwrap_or_else(compile_error)
 }
 
