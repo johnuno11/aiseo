@@ -5,7 +5,7 @@ rust_proc_macro {
     crate_name: "proc_macro_hack",
     srcs: ["src/lib.rs"],
     edition: "2018",
-    rlibs: [
+    rustlibs: [
         "libproc_macro2",
         "libquote",
         "libsyn",
